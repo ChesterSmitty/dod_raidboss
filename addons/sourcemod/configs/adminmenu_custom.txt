@@ -1,0 +1,82 @@
+"Commands"
+{
+	"RaidBoss"
+	{
+		"admin"		"sm_kick"
+		"Re-/Init RaidBoss"
+		{
+			"cmd"		"sm_init"
+			"admin"		"sm_kick"
+			"execute"	"player"
+		}
+		"Start RaidBoss"
+		{
+			"cmd"		"sm_start"
+			"admin"		"sm_kick"
+			"execute"	"player"
+		}
+		"Live Time"
+		{
+			"cmd"		"dod_raidboss_livetime #1"
+			"admin"		"sm_kick"
+			"execute"	"server"
+			"1"
+			{
+				"type" 		"list"
+				"title"		"Live Time Config:"
+				"1"		"4"
+				"1."		"4 minutes"
+				"2"		"6"
+				"2."		"6 minutes"
+				"3"		"8"
+				"3."		"8 minutes"
+				"4"		"10"
+				"4."		"10 minutes"
+			}
+		}
+		"Allow Flags/Objectives"
+		{
+			"cmd"		"dod_rmhelper_allowobjectives #1"
+			"admin"		"sm_kick"
+			"execute"	"server"
+			"1"
+			{
+				"type" 		"onoff"
+				"title"		"Allow taking Flags/Objs:"
+			}
+		}
+		"Allow Damage"
+		{
+			"cmd"		"dod_rmhelper_allowdamage #1"
+			"admin"		"sm_kick"
+			"execute"	"server"
+			"1"
+			{
+				"type" 		"onoff"
+				"title"		"Allow taking Damage on Init/Start:"
+			}
+		}
+		"Allow VoiceCommands"
+		{
+			"cmd"		"dod_rmhelper_allowvcmds #1"
+			"admin"		"sm_kick"
+			"execute"	"server"
+			"1"
+			{
+				"type" 		"onoff"
+				"title"		"Allow VoiceCmds on Init/Start:"
+			}
+		}
+		"Allow !stuck Command"
+		{
+			"cmd"		"dod_rmhelper_allowstuckcmd #1"
+			"admin"		"sm_kick"
+			"execute"	"server"
+			"1"
+			{
+				"type" 		"onoff"
+				"title"		"Allow !stuck Command:"
+			}
+		}
+	}
+}
