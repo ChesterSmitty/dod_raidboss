@@ -67,9 +67,7 @@ new g_Boss2 	= 0;
 
 new Handle:LiveTime = INVALID_HANDLE;
 new Handle:AllowObjectives = INVALID_HANDLE
-new Handle:AllowShooting = INVALID_HANDLE
 new Handle:AllowVoiceCmds = INVALID_HANDLE
-new Handle:AllowDamage = INVALID_HANDLE
 new Handle:AllowStuckCmd = INVALID_HANDLE
 new Handle:GameTimer = INVALID_HANDLE
 new Handle:BossHealth = INVALID_HANDLE
@@ -151,11 +149,8 @@ public void OnPluginStart()
 	SetConVarString(FindConVar("dod_raidboss"), PLUGIN_VERSION)
 	RegAdminCmd("sm_raidboss", RaidBoss, ADMFLAG_ROOT, "sm_raidboss");
 	LoadTranslations("common.phrases.txt");
-		AllowShooting = CreateConVar("dod_rmhelper_allowshooting", "0", "<1/0> = enable/disable Shooting on Init/Start", FCVAR_PLUGIN, true, 0.0, true, 1.0)
 	AllowVoiceCmds = CreateConVar("dod_rmhelper_allowvcmds", "0", "<1/0> = enable/disable VoiceCommands on Init/Start", FCVAR_PLUGIN, true, 0.0, true, 1.0)
-	AllowDamage = CreateConVar("dod_rmhelper_allowdamage", "0", "<1/0> = enable/disable taking Damage on Init/Start", FCVAR_PLUGIN, true, 0.0, true, 1.0)
-	AllowStuckCmd = CreateConVar("dod_rmhelper_allowstuckcmd", "0", "<1/0> = allow/disallow using the !stuck command", FCVAR_PLUGIN, true, 0.0, true, 1.0)
-	LiveTime = CreateConVar("dod_rmhelper_livetime", "4", "<#> = time in minutes for live round", FCVAR_PLUGIN, true, 1.0, true, 30.0)
+	LiveTime = CreateConVar("dod_rmhelper_livetime", "5", "<#> = time in minutes for live round", FCVAR_PLUGIN, true, 1.0, true, 30.0)
 	BossHealth = CreateConVar("dod_raidboss_health", "10000", "<#> = Health of Bosses", FCVAR_PLUGIN, true, 1.0, true, 30.0)
 	HookEvent("player_team", OnJoinTeam, EventHookMode_Pre)
 	HookEvent("player_death", OnPlayerDeath, EventHookMode_Pre)
@@ -179,7 +174,6 @@ public void OnPluginStart()
 	RegAdminCmd("sm_start", cmdStart, ADMFLAG_KICK)
 	RegAdminCmd("sm_suicide", cmdSuicide, 0)
 	RegAdminCmd("sm_stuck", cmdStuck, 0)
-	//RegAdminCmd("sm_info", cmdInfo, 0)
 	AutoExecConfig(true,"dod_raidboss", "dod_raidboss")
 }
 
@@ -230,23 +224,23 @@ public Action:OnPlayerSpawn(Handle:event, const String:name[], bool:dontBroadcas
 		return Plugin_Continue
 	}
 	ClientCommand(client, "r_screenoverlay 0")
-	g_LastStuck[client] = 0.0
-	g_PrimedNade[client] = false
+	//g_LastStuck[client] = 0.0
+	//g_PrimedNade[client] = false
 	if(g_Started == 0)
 	{
 		return Plugin_Continue
 	}
-	if(AFKTimer[client] != INVALID_HANDLE)
-	{
-		CloseHandle(AFKTimer[client])
-	}
-	AFKTimer[client] = INVALID_HANDLE
 	GetClientAbsOrigin(client, g_PlayerSpawnPos[client])
 	g_PlayerTeam[client] = GetClientTeam(client)
 	if(g_Started == 1)
 	{
 		SetEntProp(client, Prop_Data, "m_iDeaths", Deaths[client])
 		SetEntProp(client, Prop_Data, "m_iFrags", Kills[client])
+	}
+	if(g_Started == 1 && g_Init == 1 && GetClientTeam(client) == AXIS)
+	{
+		SetEntityHealth(client, GetConVarInt(BossHealth));
+		SetEntityModel(client,"models/player/vad36santa/red.mdl");
 	}
 	return Plugin_Continue
 }
@@ -350,7 +344,6 @@ public Action:SoldierDown(Handle:timer, any:client)
 		g_PluginSwitched[client] = 1
 		ChangeClientTeam(client,SPEC)
 	}
-	new alliescount = GetTeamClientCount(ALLIES)
 	new axiscount = GetTeamClientCount(AXIS)
 	if(axiscount == 0 && g_Live == 1)
 	{

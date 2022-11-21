@@ -1,0 +1,11 @@
+"VertexLitGeneric"
+{
+	"$baseTexture" "models/player/vad36santa/Santa_D_B"
+		"$bumpmap" "models/player/vad36santa/Santa_N"
+
+	"$phong"			"1"
+	"$phongboost"		".05"
+	"$phongexponent"		"50"
+	"$phongfresnelranges"	"[.8 .8 .6]"
+
+}
