@@ -56,42 +56,50 @@ new Handle:v_TextEnabled = INVALID_HANDLE;
 //##################
 //# Variables
 //##################
-char g_sSounds[2][] = {"", "dod_raidboss/bfgdivision.wav"};
-new Handle:ScoreToWin = INVALID_HANDLE;
-new bool:g_bModRunning = true;
-new bool:g_bRoundActive = true;
+//char g_sSounds[2][] = {"", "dod_raidboss/bfgdivision.wav"};
+const MaxRoundCount = 1
 
-new g_numBosses = 0;
+new g_numBosses = 1;
 new g_Boss 		= 0;
 new g_Boss2 	= 0;
 
 new Handle:LiveTime = INVALID_HANDLE;
-new Handle:AllowObjectives = INVALID_HANDLE
 new Handle:AllowVoiceCmds = INVALID_HANDLE
 new Handle:AllowStuckCmd = INVALID_HANDLE
 new Handle:GameTimer = INVALID_HANDLE
 new Handle:BossHealth = INVALID_HANDLE
 new g_PluginSwitched[MAXPLAYERS+1]
-new bool:g_PrimedNade[MAXPLAYERS+1]
 new g_PluginClass[MAXPLAYERS+1]
-new g_PlayerTeam[MAXPLAYERS+1]
-new Float:g_PlayerSpawnPos[MAXPLAYERS+1][3]
-new Handle:AFKTimer[MAXPLAYERS+1] = INVALID_HANDLE
-new g_Started = 0, g_Live = 0, g_RoundCount = 0, g_AVA = 0, g_Init = 0
+new g_Started = 0, g_Live = 0, g_Init = 0
 new Float:g_StartTime = 0.0
 new CPM = -1
-new Score[2]
-new g_MatchWinner, g_CmdsAvailable
+new g_CmdsAvailable
 new g_iAmmo, g_iClip1
 new Float:g_LastStuck[MAXPLAYERS+1]
 new Kills[MAXPLAYERS+1]
 new Deaths[MAXPLAYERS+1]
-new InitialTeam, InitMinPlayers
+new InitialTeam = ALLIES
+new InitMinPlayers
 new String:ChangeToMap[256]
+new BossSoundClipKillTracker = 0
+new BossSoundClipToPlay = 0
+const MaxBossSoundClip = 13
+const MaxBossMusic = 1
+const MaxModels = 17
+new RoundCount = 1
 new Handle:OnRaidBossStarted = INVALID_HANDLE
 new Handle:OnRaidBossEnded = INVALID_HANDLE
 new Handle:OnRoundStart = INVALID_HANDLE
 new Handle:OnRoundLive = INVALID_HANDLE
+new m_iAmmo;
+
+enum Slots
+{
+    Slot_Primary,
+    Slot_Secondary,
+    Slot_Melee,
+    Slot_Grenade
+};
 
 new String:ClassCmd[MAXCLASSES][] =
 {
@@ -125,6 +133,63 @@ new String:AxisDefendSnd[3][] =
 	"player/german/startround/ger_defense2.wav",
 	"player/german/startround/ger_defense3.wav"
 }
+
+new String:BossVoiceSndPath[MaxBossSoundClip][] =
+{
+	"dod_raidboss/bbgun.mp3",
+	"dod_raidboss/call_me_santa.mp3",
+	"dod_raidboss/filthy_animal.mp3",
+	"dod_raidboss/have_you_been_a_good_boy.mp3",
+	"dod_raidboss/hohoho.mp3",
+	"dod_raidboss/im_an_eating_drinking.mp3",
+	"dod_raidboss/lump_of_coal.mp3",
+	"dod_raidboss/Naughty_Indeed.mp3",
+	"dod_raidboss/Red_Xmas.mp3",
+	"dod_raidboss/santy-dont-visit-the-funeral-homes-little-buddy.mp3",
+	"dod_raidboss/Something_Special.mp3",
+	"dod_raidboss/Thats_So_Naughty.mp3",
+	"dod_raidboss/were-gonna-press-on-and-were-gonna-have-the-hap-hap-happiest-christmas-since-bing-crosby-tap-danced-with-danny-kaye.mp3"
+}
+
+new String:BossVoiceSnd[MaxBossSoundClip][] =
+{
+	"bbgun.mp3",
+	"call_me_santa.mp3",
+	"filthy_animal.mp3",
+	"have_you_been_a_good_boy.mp3",
+	"hohoho.mp3",
+	"im_an_eating_drinking.mp3",
+	"lump_of_coal.mp3",
+	"Naughty_Indeed.mp3",
+	"Red_Xmas.mp3",
+	"santy-don't-visit-the-funeral-homes-little-buddy.mp3",
+	"Something_Special.mp3",
+	"Thats_So_Naughty.mp3",
+	"we're-gonna-press-on-and-we're-gonna-have-the-hap-hap-happiest-christmas-since-bing-crosby-tap-danced-with-danny-kaye.mp3"
+}
+
+new String:BossMusicPath[1][] = {"dod_raidboss/bfgdivision.wav"};
+
+new String:RaidbossModels[MaxModels][] = 
+{
+	"models/player/vad36santa/red.mdl",
+	"models/player/vad36santa/blue.dx80.vtx",
+	"models/player/vad36santa/blue.dx90.vtx",
+	"models/player/vad36santa/blue.mdl",
+	"models/player/vad36santa/blue.phy",
+	"models/player/vad36santa/blue.sw.vtx",
+	"models/player/vad36santa/blue.vvd",
+	"models/player/vad36santa/red.dx80.vtx",
+	"models/player/vad36santa/red.dx90.vtx",
+	"models/player/vad36santa/red.phy",
+	"models/player/vad36santa/red.sw.vtx",
+	"models/player/vad36santa/red.vvd",
+	"materials/models/player/vad36santa/Santa_D.vmt",
+	"materials/models/player/vad36santa/Santa_D.vtf",
+	"materials/models/player/vad36santa/Santa_D_B.vmt",
+	"materials/models/player/vad36santa/Santa_D_B.vtf",
+	"materials/models/player/vad36santa/Santa_N.vtf"
+}
 //##################
 //# Actions
 //##################
@@ -132,7 +197,7 @@ new String:AxisDefendSnd[3][] =
 public void OnConfigsExecuted()
 {
 
-	char sSound[64];
+	/*char sSound[64];
 
 	for (int i = 1; i < sizeof(g_sSounds); i++) {
 
@@ -140,24 +205,23 @@ public void OnConfigsExecuted()
 		PrecacheSound(g_sSounds[i]);
 		AddFileToDownloadsTable(sSound);
 	}
-	return;
+	return;*/
 }
 
 public void OnPluginStart()
 {
-	CreateConVar("dod_raidboss_version", PLUGIN_VERSION, "DoD RaidBoss", FCVAR_PLUGIN | FCVAR_SPONLY | FCVAR_REPLICATED | FCVAR_NOTIFY);
+	CreateConVar("dod_raidboss", PLUGIN_VERSION, "DoD RaidBoss", FCVAR_PLUGIN | FCVAR_SPONLY | FCVAR_REPLICATED | FCVAR_NOTIFY);
 	SetConVarString(FindConVar("dod_raidboss"), PLUGIN_VERSION)
 	RegAdminCmd("sm_raidboss", RaidBoss, ADMFLAG_ROOT, "sm_raidboss");
 	LoadTranslations("common.phrases.txt");
-	AllowVoiceCmds = CreateConVar("dod_rmhelper_allowvcmds", "0", "<1/0> = enable/disable VoiceCommands on Init/Start", FCVAR_PLUGIN, true, 0.0, true, 1.0)
-	LiveTime = CreateConVar("dod_rmhelper_livetime", "5", "<#> = time in minutes for live round", FCVAR_PLUGIN, true, 1.0, true, 30.0)
-	BossHealth = CreateConVar("dod_raidboss_health", "10000", "<#> = Health of Bosses", FCVAR_PLUGIN, true, 1.0, true, 30.0)
+	AllowVoiceCmds = CreateConVar("dod_raidboss_allowvcmds", "0", "<1/0> = enable/disable VoiceCommands on Init/Start", FCVAR_PLUGIN, true, 0.0, true, 1.0)
+	LiveTime = CreateConVar("dod_raidboss_livetime", "5", "<#> = time in minutes for live round", FCVAR_PLUGIN, true, 1.0, true, 30.0)
+	BossHealth = CreateConVar("dod_raidboss_health", "6000", "<#> = Health of Bosses", FCVAR_PLUGIN, true, 1.0, false, 10000)
 	HookEvent("player_team", OnJoinTeam, EventHookMode_Pre)
-	HookEvent("player_death", OnPlayerDeath, EventHookMode_Pre)
-	HookEventEx("player_spawn", OnPlayerSpawn, EventHookMode_Post)
+	HookEvent("player_death", OnPlayerDeath)
+	HookEvent("player_spawn", OnPlayerSpawn)
 	HookEventEx("dod_round_active", RoundActive, EventHookMode_Post)
 	HookEventEx("dod_round_start", RoundStart, EventHookMode_Post)
-	AddNormalSoundHook(NormalSHook:BlockStartVoice)
 	OnRaidBossStarted = CreateGlobalForward("OnRaidBossStarted", ET_Event)
 	OnRaidBossEnded   = CreateGlobalForward("OnRaidBossEnded", ET_Event)
 	OnRoundStart = CreateGlobalForward("OnRoundStart", ET_Event)
@@ -175,9 +239,10 @@ public void OnPluginStart()
 	RegAdminCmd("sm_suicide", cmdSuicide, 0)
 	RegAdminCmd("sm_stuck", cmdStuck, 0)
 	AutoExecConfig(true,"dod_raidboss", "dod_raidboss")
+	m_iAmmo = FindSendPropOffs("CDODPlayer", "m_iAmmo");
 }
 
-public Action:BlockStartVoice(clients[64], &numClients, String:sample[PLATFORM_MAX_PATH], &entity, &channel, &Float:volume, &level, &pitch, &flags)
+/*public Action:BlockStartVoice(clients[64], &numClients, String:sample[PLATFORM_MAX_PATH], &entity, &channel, &Float:volume, &level, &pitch, &flags)
 {
 	if(g_Init == 0 && g_Started == 0)
 	{
@@ -188,87 +253,127 @@ public Action:BlockStartVoice(clients[64], &numClients, String:sample[PLATFORM_M
 		return Plugin_Stop
 	}
 	return Plugin_Continue
-}
+}*/
 
 public OnMapStart()
 {
 	g_Init = 0
 	g_CmdsAvailable = 0
 	g_Boss = 0
-	//PrecacheModel(EFFECT_MDL , true);
-	//PrecacheModel("materials/sprites/physbeam.vmt");
-	//PrecacheModel("models/player/b4p/b4p_bdroid/bdroid.mdl"); // 1
+	g_Boss2 = 0
 
-// Materials and Models Download
-	//AddFileToDownloadsTable("materials/models/player/b4p/sidious/arms.vmt");
+	if(FileExists(MATCHCFG, true))
+	{
+		new Handle:KeyValues = CreateKeyValues("RaidBossConfig")
+		FileToKeyValues(KeyValues, MATCHCFG)
+		KvRewind(KeyValues)
+		if(KvJumpToKey(KeyValues, "MatchSetup"))
+		{
+			InitMinPlayers = KvGetNum(KeyValues, "InitMinPlayers", 0)
+			g_Init = KvGetNum(KeyValues, "MapStartAutoOn", 0)
+		}
+		KvRewind(KeyValues)
+		CloseHandle(KeyValues)
+	}
 
-	// Sprites
-	//fire=PrecacheModel("materials/sprites/fire2.vmt");
-
-	// Sounds
-	//PrecacheSound( "ambient/explosions/explode_8.wav", true);
-
-	// Sound downloads
-	//AddFileToDownloadsTable("sound/vox/alert.wav");
+	for(new i = 0; i < MaxModels; i++)
+	{
+		PrecacheModel(RaidbossModels[i], true)
+		AddFileToDownloadsTable(RaidbossModels[i])
+	}
+	for(new i = 0; i < 3; i++)
+	{
+		PrecacheSound(AlliesAttackSnd[i], true)
+		PrecacheSound(AxisDefendSnd[i], true)
+	}
+	char sSound[128];
+	for(new i = 0; i < MaxBossSoundClip; i++)
+	{
+		Format(sSound, sizeof(sSound), "sound/%s", BossVoiceSndPath[i]);
+		AddFileToDownloadsTable(sSound)
+		PrecacheSound(BossVoiceSndPath[i], true)
+	}
+	for(new i = 0; i < MaxBossMusic; i++)
+	{
+		Format(sSound, sizeof(sSound), "sound/%s", BossMusicPath[i]);
+		AddFileToDownloadsTable(sSound)
+		PrecacheSound(BossMusicPath[i], true)
+	}
+	ResetRaidBoss()
+	m_iAmmo = FindSendPropOffs("CDODPlayer", "m_iAmmo")
 }
 
-public OnPreThink(client)
+//public Action:OnPlayerSpawn(Handle:event, const String:name[], bool:dontBroadcast)
+public OnPlayerSpawn(Handle:event, const String:name[], bool:Broadcast)
 {
-}
-
-public Action:OnPlayerSpawn(Handle:event, const String:name[], bool:dontBroadcast)
-{
-	new client = GetClientOfUserId(GetEventInt(event, "userid"))//, grenade
+	new client = GetClientOfUserId(GetEventInt(event, "userid"))
 	if(client < 1 || client > MaxClients || !IsClientInGame(client) || !IsPlayerAlive(client) || GetClientTeam(client) <= SPEC)
 	{
 		return Plugin_Continue
 	}
-	ClientCommand(client, "r_screenoverlay 0")
-	//g_LastStuck[client] = 0.0
-	//g_PrimedNade[client] = false
 	if(g_Started == 0)
 	{
 		return Plugin_Continue
 	}
-	GetClientAbsOrigin(client, g_PlayerSpawnPos[client])
-	g_PlayerTeam[client] = GetClientTeam(client)
+	//GetClientAbsOrigin(client, g_PlayerSpawnPos[client])
+	//g_PlayerTeam[client] = GetClientTeam(client)
 	if(g_Started == 1)
 	{
 		SetEntProp(client, Prop_Data, "m_iDeaths", Deaths[client])
 		SetEntProp(client, Prop_Data, "m_iFrags", Kills[client])
+		if(GetClientTeam(client) == AXIS && IsValidClient(client))
+		{
+			SetEntityHealth(client, GetConVarInt(BossHealth))
+			SetEntityModel(client,"models/player/vad36santa/red.mdl")
+			SetEntityRenderColor(client, 255, 255, 255, 255)
+			SetBossAmmo(client, Slot_Primary)
+			SetBossAmmo(client, Slot_Secondary)
+			SetBossAmmo(client, Slot_Grenade)
+		}
 	}
-	if(g_Started == 1 && g_Init == 1 && GetClientTeam(client) == AXIS)
-	{
-		SetEntityHealth(client, GetConVarInt(BossHealth));
-		SetEntityModel(client,"models/player/vad36santa/red.mdl");
-	}
+	//if(g_Started == 1 && g_Init == 1 && GetClientTeam(client) == AXIS)
 	return Plugin_Continue
 }
 
+/*public Event_PlayerSpawn(Handle:Event, const String:Name[], bool:Broadcast)
+{
+	new client = GetClientOfUserId(GetEventInt(Event, "userid"));
+	SetEntityModel(client,"models/player/vad36santa/red.mdl");
+	SetEntityRenderColor(client, 255, 255, 255, 255);
+}*/
 
 public Event_PlayerDeath(Handle:event, const String:szName[], bool:bDontBroadcast)
 {
+	return Plugin_Continue
 }
 
 public Action:OnPlayerDeath(Handle:event, const String:name[], bool:dontBroadcast)
 {
 	new client = GetClientOfUserId(GetEventInt(event, "userid"))
+	BossSoundClipKillTracker += 1
+	if(BossSoundClipKillTracker == 5)
+	{
+		for(new i = 1; i <= MaxClients; i++)
+		{
+			if(IsClientInGame(i))
+			{
+				EmitSoundToAll(BossVoiceSnd[BossSoundClipToPlay])
+			}
+		}
+		BossSoundClipKillTracker = 0
+		BossSoundClipToPlay += 1
+		if(BossSoundClipToPlay >= MaxBossSoundClip)
+		{
+			BossSoundClipToPlay = 0
+		}
+	}
 	if(client < 1 || !IsClientInGame(client) || GetClientTeam(client) <= SPEC || g_Live == 0)
 	{
 		return Plugin_Continue
 	}
-	if(AFKTimer[client] != INVALID_HANDLE)
-	{
-		CloseHandle(AFKTimer[client])
-	}
 	g_PluginClass[client] = 0
-	AFKTimer[client] = INVALID_HANDLE
 	CreateTimer(1.0, SoldierDown, client, TIMER_FLAG_NO_MAPCHANGE)
 	return Plugin_Continue
-}
-
-public OnClientPutInServer(client)
-{
 }
 
 public Action:RaidBoss(int client, int args)
@@ -279,6 +384,7 @@ public Action:RaidBoss(int client, int args)
 
 public Action:OnTakeDamage(victim, &attacker, &inflictor, &Float:damage, &damagetype)
 {
+	return Plugin_Continue
 }
 
 public Action:RoundStart(Handle:event, const String:name[], bool:dontBroadcast)
@@ -296,6 +402,11 @@ public Action:RoundActive(Handle:event, const String:name[], bool:dontBroadcast)
 		ServerCommand("exec %s", INACTIVECFG)
 	}
 	if(g_Started == 1 && g_Live == 0)
+	{
+		Call_StartForward(OnRoundStart)
+		Call_Finish()
+		g_Init = 0
+	}
 	return Plugin_Continue
 }
 
@@ -311,22 +422,27 @@ public Action:cmd_jointeam(client, args)
 		{
 			FakeClientCommandEx(client, "jointeam %i", SPEC)
 		}
-		if(team != SPEC && team != ALLIES)
+		else if(team == AXIS)
 		{
 			PrintHintText(client, "Match is LIVE, you CANNOT join the bosses team!")
+			return Plugin_Handled
+		}
+		else if(team == ALLIES)
+		{
+			FakeClientCommandEx(client, "jointeam %i", ALLIES)
+			PrintHintText(client, "Welcome in, go kill the bosses!")
 		}
 		return Plugin_Handled
 	}
 	if((team == ALLIES || team == AXIS) && g_Live == 0 && (g_Init == 1 || g_Started == 1))
 	{
-		if(currteam != SPEC && currteam != NOTEAM)
-		{
-			g_PluginSwitched[client] = 1
-			ChangeClientTeam(client, SPEC)
-		}
-		if(g_Init == 1 && team == ALLIES && currteam == NOTEAM)
+		if(g_Init == 1 && GetClientTeam(client) == g_Boss || GetClientTeam(client) == g_Boss2)
 		{
 			team = AXIS
+		}
+		else
+		{
+			team = ALLIES
 		}
 		ChangeClientTeam(client, team)
 		ShowVGUIPanel(client, team == AXIS ? "class_ger" : "class_us", INVALID_HANDLE, false)
@@ -343,6 +459,14 @@ public Action:SoldierDown(Handle:timer, any:client)
 	{
 		g_PluginSwitched[client] = 1
 		ChangeClientTeam(client,SPEC)
+		if(GetClientOfUserId(client) == g_Boss)
+		{
+			g_Boss = 0
+		}
+		if(GetClientOfUserId(client) == g_Boss2)
+		{
+			g_Boss2 = 0
+		}
 	}
 	new axiscount = GetTeamClientCount(AXIS)
 	if(axiscount == 0 && g_Live == 1)
@@ -353,8 +477,8 @@ public Action:SoldierDown(Handle:timer, any:client)
 			GameTimer = INVALID_HANDLE
 		}
 		g_Live = 0
-		PrintHintTextToAll("Round is over! The Boss has been defeated!")
-		PrintToChatAll("\x04Round is over! The Boss has been defeated!")
+		PrintHintTextToAll("Round is over! The Bosses have been defeated!")
+		PrintToChatAll("\x04Round is over! The Bosses have been defeated!")
 		HandleRoundEnd()
 	}
 	return Plugin_Handled
@@ -378,22 +502,22 @@ public Action:SelectBoss(client)
 {
 	new Handle:BossMenu = CreateMenu(Handle_BossMenu)
 	decl String:menutitle[256]
-	Format(menutitle, sizeof(menutitle), "Select Boss")
+	Format(menutitle, sizeof(menutitle), "Select Boss 1")
 	SetMenuTitle(BossMenu, menutitle)
 	for(new i = 1; i <= MaxClients; i++)
 	{
 		if(IsClientInGame(i))
 		{
 			new currteam = GetClientTeam(i)
-			if(currteam == ALLIES)
-			{
-				decl String:TargetName[32]
-				GetClientName(i, TargetName, sizeof(TargetName))
-				new userid = GetClientUserId(i)
-				decl String:userid_str[32]
-				IntToString(userid, userid_str, sizeof(userid_str))
-				AddMenuItem(BossMenu, userid_str, TargetName)
-			}
+			//if(currteam == ALLIES)
+			//{
+			decl String:TargetName[32]
+			GetClientName(i, TargetName, sizeof(TargetName))
+			new userid = GetClientUserId(i)
+			decl String:userid_str[32]
+			IntToString(userid, userid_str, sizeof(userid_str))
+			AddMenuItem(BossMenu, userid_str, TargetName)
+			//}
 		}
 	}
 	SetMenuExitButton(BossMenu, true)
@@ -410,10 +534,15 @@ public Handle_BossMenu(Handle:BossMenu, MenuAction:action, client, itemNum)
 		GetMenuItem(BossMenu, itemNum, userid, sizeof(userid))
 		new target = GetClientOfUserId(StringToInt(userid))
 		g_Boss = target
+		ChangeClientTeam(g_Boss, AXIS)
 		PrintToChat(client, "\x01Player \x04%N \x01has been choosen as the \x04BOSS\x01!", target)
 		if(g_numBosses == 2)
 		{
 			SelectBoss2(client)	
+		}
+		else
+		{
+			ConfirmBosses(client)
 		}
 	}
 	else if(action == MenuAction_Cancel)
@@ -424,6 +553,7 @@ public Handle_BossMenu(Handle:BossMenu, MenuAction:action, client, itemNum)
 			{
 				CancelClientMenu(client)
 			}
+			ChangeClientTeam(g_Boss, ALLIES)
 			g_Boss = 0
 			PrintToChat(client, "\x01RaidBoss can \x04NOT \x01be started until you choose the Boss!")
 		}
@@ -441,15 +571,15 @@ public Action:SelectBoss2(client)
 		if(IsClientInGame(i))
 		{
 			new currteam = GetClientTeam(i)
-			if(currteam == ALLIES)
-			{
-				decl String:TargetName[32]
-				GetClientName(i, TargetName, sizeof(TargetName))
-				new userid = GetClientUserId(i)
-				decl String:userid_str[32]
-				IntToString(userid, userid_str, sizeof(userid_str))
-				AddMenuItem(Boss2Menu, userid_str, TargetName)
-			}
+			//if(currteam == ALLIES)
+			//{
+			decl String:TargetName[32]
+			GetClientName(i, TargetName, sizeof(TargetName))
+			new userid = GetClientUserId(i)
+			decl String:userid_str[32]
+			IntToString(userid, userid_str, sizeof(userid_str))
+			AddMenuItem(Boss2Menu, userid_str, TargetName)
+			//}
 		}
 	}
 	SetMenuExitButton(Boss2Menu, true)
@@ -466,6 +596,7 @@ public Handle_Boss2Menu(Handle:Boss2Menu, MenuAction:action, client, itemNum)
 		GetMenuItem(Boss2Menu, itemNum, userid, sizeof(userid))
 		new target = GetClientOfUserId(StringToInt(userid))
 		g_Boss2 = target
+		ChangeClientTeam(g_Boss2, AXIS)
 		PrintToChat(client, "\x01Player \x04%N \x01has been choosen as \x04Axis Team Leader\x01!", target)
 		ConfirmBosses(client)
 	}
@@ -477,7 +608,10 @@ public Handle_Boss2Menu(Handle:Boss2Menu, MenuAction:action, client, itemNum)
 			{
 				CancelClientMenu(client)
 			}
+			ChangeClientTeam(g_Boss, ALLIES)
 			g_Boss = 0
+			ChangeClientTeam(g_Boss2, ALLIES)
+			g_Boss2 = 0
 			SelectBoss(client)
 		}
 		else if(itemNum == MenuCancel_Exit)
@@ -486,6 +620,9 @@ public Handle_Boss2Menu(Handle:Boss2Menu, MenuAction:action, client, itemNum)
 			{
 				CancelClientMenu(client)
 			}
+			ChangeClientTeam(g_Boss, ALLIES)
+			g_Boss = 0
+			ChangeClientTeam(g_Boss2, ALLIES)
 			g_Boss2 = 0
 			PrintToChat(client, "\x01RaidBoss will \x04NOT \x01be started until you choose the Bosses!")
 		}
@@ -522,7 +659,9 @@ public Handle_ConfirmBossesMenu(Handle:ConfirmBossesMenu, MenuAction:action, cli
 		}
 		else if(strcmp(menuchoice, "rmh_Change", true) == 0)
 		{
+			ChangeClientTeam(g_Boss, ALLIES)
 			g_Boss = 0
+			ChangeClientTeam(g_Boss2, ALLIES)
 			g_Boss2 = 0
 			SelectBoss(client)
 		}
@@ -535,7 +674,9 @@ public Handle_ConfirmBossesMenu(Handle:ConfirmBossesMenu, MenuAction:action, cli
 			{
 				CancelClientMenu(client)
 			}
+			ChangeClientTeam(g_Boss, ALLIES)
 			g_Boss = 0
+			ChangeClientTeam(g_Boss2, ALLIES)
 			g_Boss2 = 0
 			PrintToChat(client, "\x01RaidBoss will \x04NOT \x01be started until you choose the Boss(es)!")
 		}
@@ -549,6 +690,7 @@ public Action:cmdStart(client, args)
 		if(g_CmdsAvailable != 0)
 		{
 			g_Boss = 0
+			g_Boss2 = 0
 			SelectBoss(client)
 			Call_StartForward(OnRaidBossStarted)
 			Call_Finish()
@@ -577,44 +719,21 @@ RaidBossStartNow()
 	}
 	AllPlayersStart()
 	HandleRoundLive()
-	PrintToChatAll("\x04Rip and Tear!!")
-}
-
-public Action:cmdLive(client, args)
-{
-	if(g_Started == 1 && g_Live == 0)
-	{
-		if(g_CmdsAvailable != 0)
-		{
-			new plteam = GetClientTeam(client)
-			if(plteam != g_Boss || plteam != g_Boss2)
-			{
-				PrintToChat(client, "\x04Sorry, \x01ONLY \x04the Bosses can call 'live'!")
-				return Plugin_Handled
-			}
-
-			HandleRoundLive()
-			PrintToChatAll("\x01Boss \x04%N \x01has lived the round!", client)
-		}
-		else
-		{
-			ReplyToCommand(client, "Please try again once the current round is active!")
-		}
-		return Plugin_Handled
-	}
-	return Plugin_Handled
 }
 
 public Action:HandleRoundLive()
 {
 	g_Live = 1
+	PrintToChatAll("\x04Rip and Tear!!")
+	PrintHintTextToAll("Rip and Tear!!!")
+				EmitSoundToAll(BossMusicPath[0], _, _, SNDVOL_NORMAL, _, _, _, _)
 	ServerCommand("exec %s", LIVECFG)
 	Call_StartForward(OnRoundLive);
 	Call_Finish();
 
 	new Float:livetimer = (GetConVarFloat(LiveTime)*60.0)
 	GameTimer = CreateTimer(livetimer, TimerEnd, _, TIMER_FLAG_NO_MAPCHANGE)
-	//ZeroTimerWarmup()
+	ZeroTimerWarmup()
 	StartLiveTimer()
 	for(new i = 1; i <= MaxClients; i++)
 	{
@@ -627,9 +746,9 @@ public Action:HandleRoundLive()
 			}
 			else if(team == AXIS)
 			{	
-				SetEntityHealth(i, BossHealth)
-				EmitSoundToClient(i, AxisDefendSnd[GetRandomInt(0, 2)])
+				EmitSoundToClient(i, BossVoiceSnd[2])
 			}
+			//EmitSoundToAll(BossMusic[0], _, _, _, _, SNDVOL_NORMAL, _, _, _, _, _, _)
 		}
 	}
 	return Plugin_Handled
@@ -714,22 +833,12 @@ stock AllPlayersStart()
 				ChangeClientTeam(i, team)
 				ShowVGUIPanel(i, team == AXIS ? "class_ger" : "class_us", INVALID_HANDLE, false)
 				g_PluginClass[i] = 1
-				FakeClientCommand(i, "%s", team == AXIS ? "cls_k98" : "cls_garand")
+				//FakeClientCommand(i, "%s", team == AXIS ? "cls_k98" : "cls_garand")
 			}
 		}
 	}
 	SetConVarInt(FindConVar("mp_clan_restartround"), 1, true, false)
 }
-
-/*stock ZeroTimerWarmup()
-{
-	new Float:time = (GetConVarFloat(SetupTime)*60) - (GetGameTime() - g_StartTime)
-	decl String:timestr[12]
-	FloatToString(time, timestr, sizeof(timestr))
-	Format(timestr, sizeof(timestr), "-%s", timestr)
-	SetVariantString(timestr)
-	AcceptEntityInput(CPM, "AddTimerSeconds")
-}*/
 
 stock StartLiveTimer()
 {
@@ -786,45 +895,21 @@ public OnEntitySpawned(entity)
 		if(StrEqual(classname, "dod_control_point_master"))
 		{
 			CPM = entity
-			//new Float:time
-			//decl String:timestr[12]
-			//DispatchKeyValue(CPM, "cpm_use_timer", "1")
-			/*if(g_RoundCount != 4)
-			{
-				time = GetConVarFloat(SetupTime) * 60
-				FloatToString(time, timestr, sizeof(timestr))
-				DispatchKeyValue(CPM, "cpm_timer_length", timestr)
-			}
-			else
-			{
-				time = GetConVarFloat(AvASetupTime)
-				FloatToString(time, timestr, sizeof(timestr))
-				DispatchKeyValue(CPM, "cpm_timer_length", timestr)
-			}*/
 			DispatchKeyValue(CPM, "cpm_timer_team", "0")
 		}
 		else if(StrEqual(classname, "func_teamblocker"))
 		{
 			decl String:BlockTeam[2]
-			//IntToString(OpTeam[DefendingTeam[g_RoundCount+1]], BlockTeam, sizeof(BlockTeam))
 			DispatchKeyValue(entity, "TeamNum", BlockTeam)
 		}
 		else if(StrEqual(classname, "func_team_wall"))
 		{
 			decl String:BlockTeam[2]
-			//IntToString(OpTeam[DefendingTeam[g_RoundCount+1]], BlockTeam, sizeof(BlockTeam))
 			DispatchKeyValue(entity, "blockteam", BlockTeam)
 		}
 		else if(StrEqual(classname, "dod_capture_area") || StrEqual(classname, "dod_control_point"))
 		{
-			if(GetConVarInt(AllowObjectives) == 0)
-			{
-				AcceptEntityInput(entity, "Disable")
-			}
-			else
-			{
-				AcceptEntityInput(entity, "Enable")
-			}
+			AcceptEntityInput(entity, "Disable")
 		}
 		else if(StrEqual(classname, "dod_bomb_target") || StrEqual(classname, "dod_bomb_dispenser") || StrEqual(classname, "dod_bomb_dispenser_icon"))
 		{
@@ -940,17 +1025,6 @@ public Action:cmdStuck(client, args)
 	return Plugin_Handled
 }
 
-/*public Action:cmdInfo(client, args)
-{
-	new team = g_PlayerTeam[client]
-	if(g_Init == 0 && (g_Started == 1 || g_Live == 1) && team > SPEC)
-	{
-		PrintToChat(client, "\x04Round \x01%i  \x04-  You are \x01%s \x04this round!", g_RoundCount, DefendingTeam[g_RoundCount] == team ? "DEFENDING" : "ATTACKING")
-		PrintToChat(client, "\x01Scores: \x04Your Team \x01%i\x04:\x01%i \x04Enemy Team", RoundScoreTeam[g_RoundCount] == team ? Score[0] : Score[1], RoundScoreTeam[g_RoundCount] != team ? Score[0] : Score[1])
-	}
-	return Plugin_Handled
-}*/
-
 public Action:cmdInit(client, args)
 {
 	if(g_CmdsAvailable != 0)
@@ -988,4 +1062,53 @@ stock ResetRaidBoss()
 	g_Live = 0
 	g_Started = 0
 	g_StartTime = 0.0
+}
+
+stock ZeroTimerWarmup()
+{
+	new Float:time = (60 - (GetGameTime() - g_StartTime))
+	decl String:timestr[12]
+	FloatToString(time, timestr, sizeof(timestr))
+	Format(timestr, sizeof(timestr), "-%s", timestr)
+	SetVariantString(timestr)
+	AcceptEntityInput(CPM, "AddTimerSeconds")
+}
+
+public IsValidClient( client )
+{
+    if ( !( 1 <= client <= MaxClients ) || !IsClientInGame(client) )
+        return false;
+
+    return true;
+}
+
+stock SetBossAmmo(client, Slots:slot)
+{
+	
+	new weapon = GetPlayerWeaponSlot(client, _:slot);
+    if (IsValidEntity(weapon))
+    {
+        switch (GetEntProp(weapon, Prop_Send, "m_iPrimaryAmmoType", 1) * 4)
+        {
+            case 4:  SetEntData(client, m_iAmmo + 4,  1000); /* Colt */
+            case 8:  SetEntData(client, m_iAmmo + 8,  1000); /* P38 */
+            case 12: SetEntData(client, m_iAmmo + 12, 1000); /* C96 */
+            case 16: SetEntData(client, m_iAmmo + 16, 1000); /* Garand */
+            case 20: SetEntData(client, m_iAmmo + 20, 1000); /* K98+scoped */
+            case 24: SetEntData(client, m_iAmmo + 24, 1000); /* M1 Carbine */
+            case 28: SetEntData(client, m_iAmmo + 28, 1000); /* Spring */
+            case 32: SetEntData(client, m_iAmmo + 32, 1000); /* Thompson, MP40 & STG44 */
+            case 36: SetEntData(client, m_iAmmo + 36, 1000); /* BAR */
+            case 40: SetEntData(client, m_iAmmo + 40, 1000); /* 30cal */
+            case 44: SetEntData(client, m_iAmmo + 44, 1000); /* MG42 */
+            case 48: SetEntData(client, m_iAmmo + 48, 1000); /* Bazooka, Panzerschreck */
+            case 52: SetEntData(client, m_iAmmo + 52, 1000); /* US frag gren */
+            case 56: SetEntData(client, m_iAmmo + 56, 1000); /* Stick gren */
+            case 68: SetEntData(client, m_iAmmo + 68, 1000); /* US Smoke */
+            case 72: SetEntData(client, m_iAmmo + 72, 1000); /* Stick smoke */
+            case 84: SetEntData(client, m_iAmmo + 84, 1000); /* Riflegren US */
+            case 88: SetEntData(client, m_iAmmo + 88, 1000); /* Riflegren GER */
+        }
+    }
+
 }
